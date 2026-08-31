@@ -1,0 +1,96 @@
+{
+  "chunks": {
+    "verse1": [
+      {
+        "id": "v1_p1",
+        "start": 0.0,
+        "end": 3.28,
+        "duration": 3.28,
+        "file": "v1_p1.m4a"
+      },
+      {
+        "id": "v1_p2",
+        "start": 3.75,
+        "end": 8.04,
+        "duration": 4.29,
+        "file": "v1_p2.m4a"
+      },
+      {
+        "id": "v1_p3",
+        "start": 8.67,
+        "end": 14.43,
+        "duration": 5.76,
+        "file": "v1_p3.m4a"
+      }
+    ],
+    "verse2": [
+      {
+        "id": "v2_p1",
+        "start": 0.0,
+        "end": 2.94,
+        "duration": 2.94,
+        "file": "v2_p1.m4a"
+      },
+      {
+        "id": "v2_p2",
+        "start": 3.5,
+        "end": 5.93,
+        "duration": 2.43,
+        "file": "v2_p2.m4a"
+      },
+      {
+        "id": "v2_p3",
+        "start": 6.38,
+        "end": 13.36,
+        "duration": 6.98,
+        "file": "v2_p3.m4a"
+      },
+      {
+        "id": "v2_p4",
+        "start": 14.12,
+        "end": 16.81,
+        "duration": 2.69,
+        "file": "v2_p4.m4a"
+      }
+    ],
+    "verse3": [
+      {
+        "id": "v3_p1",
+        "start": 0,
+        "end": 6.0,
+        "duration": 6.0,
+        "file": "v3_p1.m4a"
+      },
+      {
+        "id": "v3_p2",
+        "start": 6.0,
+        "end": 8.04,
+        "duration": 2.04,
+        "file": "v3_p2.m4a"
+      }
+    ],
+    "verse4": [
+      {
+        "id": "v4_p1",
+        "start": 0.0,
+        "end": 4.74,
+        "duration": 4.74,
+        "file": "v4_p1.m4a"
+      },
+      {
+        "id": "v4_p2",
+        "start": 5.29,
+        "end": 13.91,
+        "duration": 8.62,
+        "file": "v4_p2.m4a"
+      },
+      {
+        "id": "v4_p3",
+        "start": 14.38,
+        "end": 19.88,
+        "duration": 5.5,
+        "file": "v4_p3.m4a"
+      }
+    ]
+  }
+}

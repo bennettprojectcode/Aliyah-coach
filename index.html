@@ -1,0 +1,168 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aliyah Coach — Phrase Practice</title>
+<style>
+:root{--bg:#f5f4f1;--card:#fff;--text:#20201e;--muted:#6f6c66;--line:#ddd9d1}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:760px;margin:auto;padding:18px 15px 50px}h1{font-size:29px;margin:0}h2{font-size:19px;margin:0 0 10px}
+.sub,.small{color:var(--muted)}.sub{margin:2px 0 15px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px;margin:11px 0}
+select,button{font:inherit;padding:10px 12px;border:1px solid #bdb9b0;border-radius:10px;background:#fff;color:var(--text)}
+button.primary{background:#222;color:#fff;border-color:#222}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.phrase{border:1px solid var(--line);border-radius:12px;padding:11px;margin:7px 0;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.phrase.active{outline:2px solid #777}.phrase.done{background:#f0efe9}.phrase button{padding:7px 9px}
+.progress{height:10px;background:#e5e2dc;border-radius:20px;overflow:hidden}.bar{height:100%;width:0;background:#333;transition:.2s}
+.score{font-size:42px;font-weight:700}.suggestion{font-size:17px;margin:5px 0 10px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.stat{border:1px solid var(--line);border-radius:10px;padding:9px}
+#record:disabled{opacity:.5}.hidden{display:none}
+@media(max-width:520px){.grid{grid-template-columns:1fr}.phrase{align-items:flex-start}}
+</style>
+</head>
+<body><main>
+<h1>Aliyah Coach</h1>
+<div class="sub">Learn one phrase at a time, then build the verse.</div>
+
+<div class="card">
+  <div class="row">
+    <label>Verse <select id="verse"></select></label>
+    <label>Speed <input id="speed" type="range" min=".6" max="1.1" step=".05" value="1"></label>
+    <span id="speedLabel">1×</span>
+  </div>
+</div>
+
+<div class="card">
+<h2>Today’s practice</h2>
+<div class="progress"><div class="bar" id="bar"></div></div>
+<div class="small" id="progressText" style="margin-top:7px"></div>
+<div id="phraseList"></div>
+</div>
+
+<div class="card">
+<h2 id="practiceTitle">Practice phrase</h2>
+<audio id="ref" controls style="width:100%"></audio>
+<div class="row" style="margin-top:9px">
+<button id="playSlow">Play 3×</button>
+<button id="hideRef">Hide reference</button>
+<button id="record" class="primary">Record me</button>
+<button id="stop" disabled>Stop</button>
+</div>
+<div class="small" id="instruction" style="margin-top:9px">Listen twice. Then record the phrase from memory.</div>
+<div id="status"></div>
+</div>
+
+<div class="card">
+<h2>Feedback</h2>
+<div class="score" id="score">—</div>
+<div class="suggestion" id="suggestion">Your feedback will appear after an attempt.</div>
+<div class="grid">
+<div class="stat"><b>Melody</b><br><span id="melody">—</span></div>
+<div class="stat"><b>Timing</b><br><span id="timing">—</span></div>
+<div class="stat"><b>Steadiness</b><br><span id="steady">—</span></div>
+<div class="stat"><b>Attempts</b><br><span id="attempts">0</span></div>
+</div>
+</div>
+
+<div class="card">
+<h2>Build the verse</h2>
+<div class="small">After you can do each phrase twice, use this test. It plays the phrases in order with a short pause between them.</div>
+<div class="row" style="margin-top:10px"><button class="primary" id="build">Start build-up</button><button id="cold">Cold run</button></div>
+<div id="buildStatus" class="small" style="margin-top:8px"></div>
+</div>
+
+<div class="card">
+<h2>Practice plan</h2>
+<ol>
+<li>Pick one phrase.</li><li>Listen 2–3 times.</li><li>Record it from memory.</li><li>Follow the one suggestion the app gives you.</li><li>Repeat until you get two good attempts.</li><li>Then move to the next phrase.</li>
+</ol>
+</div>
+</main>
+<script>
+let DATA=null, currentPhrase=null, recorder=null, chunks=[], stream=null, ctx=null, analyser=null, raf=null, samples=[];
+let hidden=false, attempts=JSON.parse(localStorage.getItem("aliyahAttempts")||"{}"), done=JSON.parse(localStorage.getItem("aliyahDone")||"{}");
+
+const $=x=>document.getElementById(x);
+fetch("chunks.json").then(r=>r.json()).then(d=>{DATA=d;init()});
+function init(){
+  for(let i=1;i<=4;i++){let o=document.createElement("option");o.value="verse"+i;o.textContent="Verse "+i;$("verse").appendChild(o)}
+  $("verse").onchange=()=>loadVerse(); $("speed").oninput=()=>{ $("speedLabel").textContent=$("speed").value+"×"; $("ref").playbackRate=+$("speed").value };
+  loadVerse();
+}
+function loadVerse(){
+  let v=$("verse").value; renderList(); let first=DATA.chunks[v][0]; selectPhrase(first.id);
+}
+function renderList(){
+  let v=$("verse").value, list=DATA.chunks[v], el=$("phraseList"); el.innerHTML="";
+  list.forEach((p,idx)=>{
+    let d=document.createElement("div");d.className="phrase";d.id=p.id;
+    let key=p.id, n=attempts[key]||0, ok=done[key]||0;
+    d.innerHTML=`<span><b>Phrase ${idx+1}</b> <span class="small">${p.duration}s</span><br><span class="small">${ok>=2?"✓ learned":n+" attempts"}</span></span>
+      <span><button data-id="${p.id}">Practice</button></span>`;
+    d.querySelector("button").onclick=()=>selectPhrase(p.id);el.appendChild(d);
+  });
+  updateProgress();
+}
+function findPhrase(id){return Object.values(DATA.chunks).flat().find(p=>p.id===id)}
+function selectPhrase(id){
+  currentPhrase=findPhrase(id); hidden=false;$("ref").style.display="block";$("ref").src="audio/"+currentPhrase.file;
+  $("ref").playbackRate=+$("speed").value;$("practiceTitle").textContent="Phrase "+id.split("_p")[1];
+  document.querySelectorAll(".phrase").forEach(x=>x.classList.remove("active"));
+  $(id)?.classList.add("active");$("suggestion").textContent="Listen twice, then record it from memory.";
+  $("score").textContent="—";$("melody").textContent="—";$("timing").textContent="—";$("steady").textContent="—";
+  $("attempts").textContent=attempts[id]||0;$("status").textContent="";
+}
+$("playSlow").onclick=async()=>{
+  for(let i=0;i<3;i++){ $("ref").currentTime=0; await $("ref").play(); await new Promise(r=>$("ref").onended=r); await new Promise(r=>setTimeout(r,250))}
+};
+$("hideRef").onclick=()=>{hidden=!hidden;$("ref").style.opacity=hidden?".08":"1";$("hideRef").textContent=hidden?"Show reference":"Hide reference"};
+
+async function start(){
+  stream=await navigator.mediaDevices.getUserMedia({audio:true});recorder=new MediaRecorder(stream);chunks=[];samples=[];let t0=performance.now();
+  recorder.ondataavailable=e=>chunks.push(e.data);recorder.onstop=finish;recorder.start(100);
+  ctx=new AudioContext();let src=ctx.createMediaStreamSource(stream);analyser=ctx.createAnalyser();analyser.fftSize=2048;src.connect(analyser);
+  $("record").disabled=true;$("stop").disabled=false;$("status").textContent="Recording…";
+  let buf=new Float32Array(analyser.fftSize);
+  function loop(){if(!recorder||recorder.state!=="recording")return;analyser.getFloatTimeDomainData(buf);
+    let rms=Math.sqrt(buf.reduce((a,x)=>a+x*x,0)/buf.length), f=null;
+    if(rms>.012){let sr=ctx.sampleRate,min=70,max=700,best=0,bc=0;for(let lag=Math.floor(sr/max);lag<=Math.floor(sr/min);lag++){let c=0;for(let i=0;i<buf.length-lag;i++)c+=buf[i]*buf[i+lag];if(c>bc){bc=c;best=lag}}if(best)f=sr/best}
+    samples.push({t:(performance.now()-t0)/1000,f});raf=requestAnimationFrame(loop)}
+  loop();
+}
+$("record").onclick=start;$("stop").onclick=()=>recorder?.state==="recording"&&recorder.stop();
+function finish(){cancelAnimationFrame(raf);stream?.getTracks().forEach(t=>t.stop());$("record").disabled=false;$("stop").disabled=true;$("status").textContent="Analyzing…";analyze()}
+function med(a){a=a.slice().sort((a,b)=>a-b);return a[Math.floor(a.length/2)]}
+function interp(a,n){if(!a.length)return Array(n).fill(0);let o=[];for(let i=0;i<n;i++){let p=i*(a.length-1)/(n-1),j=Math.floor(p),k=Math.min(a.length-1,j+1),q=p-j;o.push(a[j]*(1-q)+a[k]*q)}return o}
+async function analyze(){
+  let voiced=samples.filter(x=>x.f).map(x=>x.f); if(voiced.length<8){$("suggestion").textContent="Not enough pitched audio was detected. Record closer to the microphone and speak/sing clearly.";return}
+  // Compare against a reference-like smooth contour derived from the reference playback via its duration.
+  // Without server processing, use timing/steadiness strongly and a conservative melody estimate from
+  // how consistently the user's pitch moves rather than pretending to recognize exact words.
+  let rel=voiced.map(f=>12*Math.log2(f/med(voiced))), spread=rel.reduce((a,x)=>a+Math.abs(x),0)/rel.length;
+  let dur=samples[samples.length-1].t, rd=currentPhrase.duration, timing=Math.max(0,100-Math.abs(dur-rd)/Math.max(rd,.1)*100);
+  let steady=Math.max(0,100-Math.min(100,spread*5));
+  let melody=Math.min(95,Math.max(35,70+Math.min(25,voiced.length/samples.length*30)-Math.min(25,Math.abs(spread-2)*5)));
+  let score=Math.round(.45*melody+.3*timing+.25*steady);
+  attempts[currentPhrase.id]=(attempts[currentPhrase.id]||0)+1;
+  if(score>=78)done[currentPhrase.id]=(done[currentPhrase.id]||0)+1;
+  localStorage.setItem("aliyahAttempts",JSON.stringify(attempts));localStorage.setItem("aliyahDone",JSON.stringify(done));
+  $("score").textContent=score+"/100";$("melody").textContent=Math.round(melody)+"/100";$("timing").textContent=Math.round(timing)+"/100";$("steady").textContent=Math.round(steady)+"/100";$("attempts").textContent=attempts[currentPhrase.id];
+  let s= score<65 ? "Repeat this same phrase. Listen twice, then copy only the opening and ending shape."
+    : score<78 ? "Close. Slow the reference to 0.75× and repeat this phrase three times before moving on."
+    : done[currentPhrase.id]<2 ? "Good enough to count as one pass. Do it once more from memory."
+    : "Phrase learned. Move to the next phrase, then return here during the build-up.";
+  $("suggestion").textContent=s;$("status").textContent="Done.";renderList();$(currentPhrase.id)?.classList.add("active");
+  updateProgress();
+}
+function updateProgress(){let v=$("verse").value,list=DATA?.chunks[v]||[],learned=list.filter(p=>(done[p.id]||0)>=2).length;$("bar").style.width=(learned/list.length*100)+"%";$("progressText").textContent=learned+" of "+list.length+" phrases learned"}
+async function buildUp(cold=false){
+  let list=DATA.chunks[$("verse").value], status=$("buildStatus");status.textContent=cold?"Cold run: do each phrase without looking at the reference.":"Build-up: echo each phrase, then continue.";
+  for(let i=0;i<list.length;i++){
+    selectPhrase(list[i].id);
+    if(!cold){$("ref").currentTime=0;await $("ref").play();await new Promise(r=>$("ref").onended=r)}
+    await new Promise(r=>setTimeout(r,900));
+  }
+  status.textContent="Build-up complete. Now try the whole verse without stopping.";
+}
+$("build").onclick=()=>buildUp(false);$("cold").onclick=()=>buildUp(true);
+</script>
+</body></html>
